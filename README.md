@@ -2,7 +2,7 @@
 
 Room runs an untrusted program in a box made from Linux namespaces, cgroup v2 and a seccomp filter. It limits the program's time, memory and processes, and it reports how the program ended. It's made for code judges.
 
-Room uses the command line and the meta file format of [isolate](https://github.com/ioi/isolate). It needs no daemon and no libraries. It arranges its own cgroups, so in Docker it needs `--cap-add SYS_ADMIN` and no systemd. A host with AppArmor needs one more flag, see [Requirements](#requirements).
+Room uses the command line and the meta file format of [isolate](https://github.com/ioi/isolate). It needs no daemon and no libraries. It arranges its own cgroups, so it runs in a Docker container without systemd and without `--privileged`.
 
 ## Requirements
 
@@ -10,18 +10,24 @@ Room uses the command line and the meta file format of [isolate](https://github.
 - Cgroup v2 at `/sys/fs/cgroup` with the `memory` and `pids` controllers. `--cpus` also needs `cpuset`. Room refuses cgroup v1 and hybrid setups.
 - Kernel 5.14 or later, going by the kernel's documentation. The `cg-mem` result needs 5.19. [docs/DESIGN.md](docs/DESIGN.md#platform-dependencies) lists the features.
 - Root. Room isn't setuid, so a caller that isn't root uses `sudo`.
-- In Docker: `--cap-add SYS_ADMIN` or `--privileged`. Add `--cap-add NET_ADMIN` if the box needs a loopback interface that is up.
-- On a Docker host with AppArmor, such as Ubuntu: `--security-opt apparmor=unconfined` next to `--cap-add SYS_ADMIN`. Docker's default AppArmor profile denies the mounts that room needs.
+- In Docker: `--cap-add SYS_ADMIN` with `--security-opt apparmor=unconfined`, or `--privileged`. See [In a Docker image](#in-a-docker-image). Add `--cap-add NET_ADMIN` if the box needs a loopback interface that is up.
 - To build: a C compiler, `make` and the Linux kernel headers. Room links only against libc, glibc or musl.
 
-The test suite passes in Docker 29.9.3 on kernel 7.0.14 (linuxkit, aarch64), with `--cap-add SYS_ADMIN` and with `--privileged`. It also passes under systemd 257 in a privileged container. Without systemd, only the cgroup logic is tested, from the root cgroup of Docker's VM.
+The test suite passes in two environments:
+
+- GitHub's Ubuntu 24.04 runners on kernel 7.0, x86_64 and arm64. CI runs the suite there on every push.
+- Docker 29.9.3 on kernel 7.0.14 (linuxkit, aarch64).
+
+In both, the suite runs in a container with `--cap-add SYS_ADMIN --security-opt apparmor=unconfined`, in a container with `--privileged`, and under systemd 257 with `room.service`. A build with AddressSanitizer and UndefinedBehaviorSanitizer also passes, with no reports.
+
+Without systemd, only the cgroup logic is tested, from the root cgroup of Docker's VM.
 
 Not tested:
 
-- A real x86_64 kernel. The x86_64 build compiles and its filter passes a simulation.
-- A real machine or VM, and kernels other than 7.0.
+- Room on a machine or VM outside a container.
+- Kernels other than 7.0.
 - Other systemd versions and other init systems.
-- AppArmor, SELinux, rootless Docker, podman and Kubernetes.
+- SELinux, rootless Docker, podman and Kubernetes.
 
 ## Install
 
@@ -46,13 +52,26 @@ FROM python:3.13-slim
 COPY --from=room-release /room /usr/local/bin/room
 ```
 
-Start the container with `--cap-add SYS_ADMIN`. On a host with AppArmor, add `--security-opt apparmor=unconfined`. In Compose, those are `cap_add: [SYS_ADMIN]` and `security_opt: [apparmor=unconfined]`.
+Start the container with these two options:
 
 ```console
-$ docker run --rm --cap-add SYS_ADMIN my-judge sh -c 'room --init && echo "print(6 * 7)" > /var/lib/room/0/box/main.py && room --run --cg-mem=262144 -t 2 -- /usr/local/bin/python3 main.py'
+$ docker run --rm --cap-add SYS_ADMIN --security-opt apparmor=unconfined my-judge sh -c 'room --init && echo "print(6 * 7)" > /var/lib/room/0/box/main.py && room --run --cg-mem=262144 -t 2 -- /usr/local/bin/python3 main.py'
 /var/lib/room/0
 42
 OK (0.011 sec real, 0.018 sec wall)
+```
+
+- `--cap-add SYS_ADMIN` lets room create namespaces and mount filesystems.
+- `--security-opt apparmor=unconfined` is for a host with AppArmor, such as Ubuntu. Docker's default AppArmor profile denies every mount, also with `SYS_ADMIN`. On a host without AppArmor the option has no effect.
+
+In Compose:
+
+```yaml
+services:
+  judge:
+    image: my-judge
+    cap_add: [SYS_ADMIN]
+    security_opt: [apparmor=unconfined]
 ```
 
 The first room command in a container changes the container's cgroups:
