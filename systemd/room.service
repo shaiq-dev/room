@@ -1,0 +1,12 @@
+[Unit]
+Description=Delegated cgroup for room's boxes
+
+[Service]
+# systemd removes the cgroup of a unit that has no process, even while the
+# unit is active. The sleep keeps the cgroup. The first room command moves
+# the sleep into room/main.
+ExecStart=/bin/sleep infinity
+Delegate=yes
+
+[Install]
+WantedBy=multi-user.target
