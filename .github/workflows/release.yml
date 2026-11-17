@@ -1,4 +1,5 @@
-# Push a tag like v0.1.0 to release that version.
+# Push an annotated tag like v0.1.0 to release that version. The tag's
+# message becomes the release notes.
 # The image and the release are only made if the tag matches ROOM_VERSION
 # in src/room.h and ci.yml passes.
 name: release
@@ -52,7 +53,7 @@ jobs:
         run: |
           # Registry names must be lower case.
           image="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr "[:upper:]" "[:lower:]")"
-          docker build --platform linux/amd64,linux/arm64 --target release \
+          docker buildx build --platform linux/amd64,linux/arm64 --target release \
             --tag "$image:${GITHUB_REF_NAME#v}" --tag "$image:latest" --push .
 
   binaries:
@@ -69,4 +70,7 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes build/dist/*
+        run: |
+          # checkout leaves a tag without its message.
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          gh release create "$GITHUB_REF_NAME" --verify-tag --notes-from-tag build/dist/*
