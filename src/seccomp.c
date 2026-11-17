@@ -78,8 +78,8 @@
     LOAD(nr)
 
 /*
- * socket() only for the families a judged program needs, and netlink only
- * for NETLINK_ROUTE, which libc uses to list the interfaces. Every jump
+ * socket() only for the families the program in the box needs, and netlink
+ * only for NETLINK_ROUTE, which libc uses to list the interfaces. Every jump
  * stays inside the block and lands on its final reload of the call number.
  */
 #define SOCKET_RULE \

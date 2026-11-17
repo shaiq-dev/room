@@ -145,7 +145,7 @@ After a successful claim, `pick_box()` sets `die_hook` to `unclaim()`. If `--ini
 
 ### --run
 
-`do_run()` first calls `run_begin()`, which opens the meta file and makes every later `die()` write `status:XX` to it. A failed run must not leave an earlier result there for a judge that reuses the path. It then calls `cg_init()`, takes the lock and checks that `box/` and `box-N` exist, in that order, so a concurrent `--init` or `--cleanup` can't change the box between the check and the run. Then `run_box()` takes over and never returns.
+`do_run()` first calls `run_begin()`, which opens the meta file and makes every later `die()` write `status:XX` to it. A failed run must not leave an earlier result there for a caller that reuses the path. It then calls `cg_init()`, takes the lock and checks that `box/` and `box-N` exist, in that order, so a concurrent `--init` or `--cleanup` can't change the box between the check and the run. Then `run_box()` takes over and never returns.
 
 ## A run
 
@@ -278,7 +278,7 @@ The last instruction allows the call. The filter has 62 instructions on aarch64 
 
 The argument checks read the low 32 bits of an argument from its first four bytes, so only little-endian 64-bit targets are supported and an x32 build is refused at compile time. Call numbers from 424 up are the same on every architecture, so `seccomp.c` fills them in when the headers are too old to know them. Dropping the rule instead would silently open a hole.
 
-The namespaces do most of the isolation. The filter covers what they don't: kernel objects that aren't namespaced, and kernel interfaces a judged program has no use for.
+The namespaces do most of the isolation. The filter covers what they don't: kernel objects that aren't namespaced, and kernel interfaces the program in the box has no use for.
 
 | System call | Result | Why |
 | --- | --- | --- |
@@ -293,7 +293,7 @@ The namespaces do most of the isolation. The filter covers what they don't: kern
 | `socket` with `AF_NETLINK` and a protocol other than `NETLINK_ROUTE` | `EPROTONOSUPPORT` | libc lists the interfaces over `NETLINK_ROUTE`. Nothing needs the other protocols |
 | `socketpair` with a family other than `AF_UNIX` | `EAFNOSUPPORT` | The same as `socket` |
 | `ioctl` with `TIOCSTI` or `TIOCLINUX` | `EPERM` | They put input into a terminal, which could be the caller's |
-| `fanotify_init`, `bpf`, `perf_event_open`, `userfaultfd` | `EPERM` | Kernel interfaces a judged program doesn't need |
+| `fanotify_init`, `bpf`, `perf_event_open`, `userfaultfd` | `EPERM` | Kernel interfaces the program in the box doesn't need |
 
 File locks are allowed on purpose, see [Decisions](#decisions).
 

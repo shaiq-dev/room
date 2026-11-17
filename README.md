@@ -1,6 +1,6 @@
 # room
 
-Room runs an untrusted program in a box made from Linux namespaces, cgroup v2 and a seccomp filter. It limits the program's time, memory and processes, and it reports how the program ended. It's made for code judges.
+Room is a sandbox for running untrusted code. It runs a program in a box made from Linux namespaces, cgroup v2 and a seccomp filter. It limits the program's time, memory and processes, and it reports how the program ended.
 
 Room uses the command line and the meta file format of [isolate](https://github.com/ioi/isolate). It needs no daemon and no libraries. It arranges its own cgroups, so it runs in a Docker container without systemd and without `--privileged`.
 
@@ -45,7 +45,7 @@ On another system, use Docker. `make image` builds the release image. `make dist
 
 ### In a Docker image
 
-`make image` builds the image `room-release`, which holds only the static binary at `/room`. Copy the binary into your judge's image:
+`make image` builds the image `room-release`, which holds only the static binary at `/room`. Copy the binary into your own image:
 
 ```dockerfile
 FROM python:3.13-slim
@@ -55,7 +55,7 @@ COPY --from=room-release /room /usr/local/bin/room
 Start the container with these two options:
 
 ```console
-$ docker run --rm --cap-add SYS_ADMIN --security-opt apparmor=unconfined my-judge sh -c 'room --init && echo "print(6 * 7)" > /var/lib/room/0/box/main.py && room --run --cg-mem=262144 -t 2 -- /usr/local/bin/python3 main.py'
+$ docker run --rm --cap-add SYS_ADMIN --security-opt apparmor=unconfined my-image sh -c 'room --init && echo "print(6 * 7)" > /var/lib/room/0/box/main.py && room --run --cg-mem=262144 -t 2 -- /usr/local/bin/python3 main.py'
 /var/lib/room/0
 42
 OK (0.011 sec real, 0.018 sec wall)
@@ -68,8 +68,8 @@ In Compose:
 
 ```yaml
 services:
-  judge:
-    image: my-judge
+  sandbox:
+    image: my-image
     cap_add: [SYS_ADMIN]
     security_opt: [apparmor=unconfined]
 ```
@@ -198,7 +198,7 @@ $ room -b 1 --run -- ./prog
 $ room -b 1 --cleanup
 ```
 
-Several judges can do this at the same time. A number stays taken from `--init` until `--cleanup`.
+Several callers can do this at the same time. A number stays taken from `--init` until `--cleanup`.
 
 ### How many boxes
 
@@ -359,7 +359,7 @@ Examples:
 
 ```sh
 -d /etc:noexec                 # the container's /etc, read-only, nothing executable
--d /data=/srv/problems/42      # test data at /data, read-only
+-d /data=/srv/inputs/42        # input data at /data, read-only
 -d /out=/srv/results/42:rw     # a directory the program can write to
 -d /hosts=/etc/hosts           # a single file
 -d /scratch=tmpfs:fs:rw        # an empty in-memory filesystem
@@ -388,11 +388,11 @@ Rules apply in order: the defaults first, then yours. A rule that replaces a def
 
 ### A root filesystem per language
 
-By default the program sees the container's own `/bin`, `/lib` and `/usr`, which includes everything your judge installed there. `--root=DIR` makes every rule without an OUT bind from DIR. That includes the defaults `bin`, `lib`, `lib64` and `usr`. With `--root`, `-d etc` means the `/etc` of DIR.
+By default the program sees the container's own `/bin`, `/lib` and `/usr`, which includes everything installed there. `--root=DIR` makes every rule without an OUT bind from DIR. That includes the defaults `bin`, `lib`, `lib64` and `usr`. With `--root`, `-d etc` means the `/etc` of DIR.
 
 Room follows symlinks inside DIR as if DIR were `/`, so they can't lead out of it. Rules with an OUT, `fs` rules, `tmp` rules, `/box` and `/dev` don't change.
 
-A Dockerfile can copy a whole image into a directory. That gives one judge image with a root filesystem per language:
+A Dockerfile can copy a whole image into a directory. That gives one image with a root filesystem per language:
 
 ```dockerfile
 FROM debian:trixie-slim
@@ -471,16 +471,16 @@ If room itself fails, it exits with 2 and the meta file has only `status:XX` and
 
 `--run` empties the meta file before it does anything else, so a failed run never leaves an earlier result in it. Room finds three errors before that and leaves the file unchanged: a usage error, a bad `ROOM_BOX_ROOT` and a box number that the machine doesn't have.
 
-### Reading the result in a judge
+### Reading the result
 
 | What happened | What you see |
 | --- | --- |
-| Accepted | Exit status 0, no `status` key |
+| Success | Exit status 0, no `status` key |
 | Time limit exceeded | `status:TO` |
 | Memory limit exceeded | `cg-oom-killed:1`, with `status:SG` and `exitsig:9` |
 | Crash | `status:SG` and `exitsig` (11 is a segfault, 6 an abort, 8 an arithmetic error) |
 | Non-zero exit | `status:RE` and `exitcode` |
-| Output limit exceeded, with `-f` | `status:SG` and `exitsig:25` |
+| File size limit exceeded, with `-f` | `status:SG` and `exitsig:25` |
 | Internal error, not the program's fault | Exit status 2 and `status:XX` |
 
 Time used is `time`. Memory used is `cg-mem`.
@@ -534,7 +534,7 @@ When the program's main process ends, room kills everything else in the box. Not
 - With `--share-net`, the program can reach whatever the container can reach.
 - Docker's default seccomp profile refuses `pivot_root`, even with `SYS_ADMIN`. Room then moves the new root over the old one and uses `chroot`. The old root stays in the box's mount namespace, but no path leads to it. With `--privileged` or `--security-opt seccomp=unconfined`, room uses `pivot_root` and detaches the old root.
 - Box uids start at 60000, which is fixed at build time. Make sure nothing else on the machine uses the uids of your boxes.
-- A running box is three processes: the program and two of room's. It also costs memory outside its own limit. With 2000 boxes running at once, the whole container used about 1.5 MB per box. The container's process limit and the judge's open file limit must allow for that.
+- A running box is three processes: the program and two of room's. It also costs memory outside its own limit. With 2000 boxes running at once, the whole container used about 1.5 MB per box. The container's process limit and the caller's open file limit must allow for that.
 - No test ran a box in a user namespace with 65536 uids. A test covers only the box count there.
 
 ## Development

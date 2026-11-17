@@ -38,7 +38,7 @@ bool env_rule_add(const char *arg);
 /*
  * --run, first of all: opens the meta file (meta_path NULL means none, "-"
  * stdout) and makes every later die() write status XX and the message to
- * it. A failed run must not leave the previous result there for a judge
+ * it. A failed run must not leave the previous result there for a caller
  * that reuses the path.
  */
 void run_begin(const char *meta_path);

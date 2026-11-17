@@ -1060,7 +1060,7 @@ t_meta_stdout() {
 }
 
 # The meta files below are $M and not $META, which R deletes before every
-# command. A judge reuses the path, so the old result must not survive.
+# command. A caller reuses the path, so the old result must not survive.
 # want_xx_meta TEXT: $M is an XX result whose message contains TEXT.
 want_xx_meta() {
     note "meta file $M: $(cat "$M" 2> /dev/null)"
@@ -1073,7 +1073,7 @@ want_xx_meta() {
 }
 
 t_meta_uninitialised() {
-    M=$WORK/meta.judge
+    M=$WORK/meta.reused
     binit
     R -b "$B" -M "$M" --run -- $T exit 0
     want_rc 0 "the run that writes $M"
@@ -1085,7 +1085,7 @@ t_meta_uninitialised() {
 # Before the lock is held the box is the other command's. Failing must not
 # kill its run or touch its box/.
 t_meta_box_in_use() {
-    M=$WORK/meta.judge
+    M=$WORK/meta.reused
     binit
     R -b "$B" -M "$M" --run -- $T exit 0
     want_rc 0 "the run that writes $M"
@@ -1111,7 +1111,7 @@ t_meta_box_in_use() {
 }
 
 t_meta_usage_error() {
-    M=$WORK/meta.judge
+    M=$WORK/meta.reused
     binit
     R -b "$B" -M "$M" --run -- $T exit 0
     want_rc 0 "the run that writes $M"
@@ -1807,9 +1807,9 @@ t_seccomp_sim() {
     want_rc 0
 }
 
-# ---- how a judge calls room ----
+# ---- how a caller uses room ----
 
-# J COMMAND: runs a command line through sh -c, the way a judge does. Sets RC.
+# J COMMAND: runs a command line through sh -c, the way a caller does. Sets RC.
 J() {
     rm -f "$META"
     timeout -k 5 "${TMO:-60}" sh -c "$1" 2> "$ERR"
@@ -1822,7 +1822,7 @@ J() {
     } >> "$LOG"
 }
 
-t_judge_flow() {
+t_caller_flow() {
     binit
     echo 'gcc -O2 -o a.out main.c' > "$BD/box/compile.sh"
     cat > "$BD/box/main.c" << 'EOF'
@@ -2786,7 +2786,7 @@ for t in \
     dir_etc dir_dotdot no_default_dirs relative_program cg_flag silent \
     meta_stdout meta_uninitialised meta_box_in_use meta_usage_error \
     lock signals sigkill deep_box deep_tmp deep_rerun overhead concurrency \
-    cgroup_layout cleanup_cgroup judge_flow \
+    cgroup_layout cleanup_cgroup caller_flow \
     time_overflow cg_mem_tiny oom_group meta_newlines xx_after_run \
     mount_flags root_switch namespaces special_subdir hardlink \
     dir_dev dir_norec dir_fs_tmpfs dir_tmp_rule dir_replace_order dir_dev_rules \
