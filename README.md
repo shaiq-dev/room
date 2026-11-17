@@ -31,25 +31,15 @@ Not tested:
 
 ## Install
 
-### Build
-
-```sh
-make                 # builds build/room
-sudo make install    # installs /usr/local/bin/room
-make STATIC=1        # a static PIE that you can copy into any image
-```
-
-Room only builds on Linux. `PREFIX` and `DESTDIR` change where `install` puts the binary. `make help` lists every target.
-
-On another system, use Docker. `make image` builds the release image. `make dist` builds static binaries for linux/amd64 and linux/arm64 into `build/dist`.
+Each [release](https://github.com/shaiq-dev/room/releases) has a Docker image, a tarball for the install script, and a `.deb` and an `.rpm` package. All of them are for x86_64 and arm64.
 
 ### In a Docker image
 
-`make image` builds the image `room-release`, which holds only the static binary at `/room`. Copy the binary into your own image:
+The image `ghcr.io/shaiq-dev/room` holds only the static binary at `/room`. Copy the binary into your own image:
 
 ```dockerfile
 FROM python:3.13-slim
-COPY --from=room-release /room /usr/local/bin/room
+COPY --from=ghcr.io/shaiq-dev/room:0.1.0 /room /usr/local/bin/room
 ```
 
 Start the container with these two options:
@@ -82,25 +72,39 @@ The first room command in a container changes the container's cgroups:
 
 Your processes continue to run and `docker exec` still works. The container's limits, such as `--memory` and `--pids-limit`, still apply to everything, boxes included. [docs/DESIGN.md](docs/DESIGN.md#cgroup-layout) gives the reason for the move.
 
-### On a machine with systemd
+### With the install script
 
 ```sh
-make
-sudo make install install-systemd
-sudo systemctl daemon-reload
-sudo systemctl enable --now room.service
+curl -fsSL https://raw.githubusercontent.com/shaiq-dev/room/main/install.sh | sudo sh
 ```
 
-Under systemd, room only uses the cgroup that systemd delegates to `room.service`. Without the unit, room refuses to run. If you stop the unit, systemd kills every box and removes room's cgroups. Each box then needs `--init` again.
+The script downloads the latest release, checks its SHA256 sum and installs `/usr/local/bin/room`. On a machine that runs systemd, it also installs `room.service` and starts it.
+
+Two variables change what it does. Give them after `sudo`, as in `sudo ROOM_VERSION=0.1.0 sh`:
+
+- `ROOM_VERSION` selects a release. The default is the latest.
+- `DESTINATION` is the directory for the binary. The default is `/usr/local/bin`.
+
+### With a package
+
+Download the package for your machine from the [release](https://github.com/shaiq-dev/room/releases), then install it:
+
+```sh
+sudo apt install ./room_0.1.0-1_amd64.deb     # Debian and Ubuntu
+sudo dnf install ./room-0.1.0-1.x86_64.rpm    # Fedora and RHEL
+```
+
+A package installs `/usr/bin/room` and `room.service`. On a machine that runs systemd, it starts the unit. An upgrade leaves the unit running, so the boxes survive it. Removing the package stops the unit.
+
+The packages are tested on Debian 13 and Fedora 42.
+
+### On a machine with systemd
+
+Under systemd, room only uses the cgroup that systemd delegates to `room.service`. The install script and the packages install the unit and start it. Without the unit, room refuses to run. If you stop the unit, systemd kills every box and removes room's cgroups. Each box then needs `--init` again.
 
 To use another delegated cgroup, set [`ROOM_CG_ROOT`](#environment-variables).
 
 ### On a machine without systemd
-
-```sh
-make
-sudo make install
-```
 
 Room then arranges the cgroup it's called from, as it does in a container:
 
@@ -108,6 +112,19 @@ Room then arranges the cgroup it's called from, as it does in a container:
 - From any other cgroup, it moves every process of that cgroup into `room/main` below it.
 
 To keep room away from your cgroups, give it its own cgroup with [`ROOM_CG_ROOT`](#environment-variables).
+
+### Build from source
+
+```sh
+make                         # builds build/room
+sudo make install            # installs /usr/local/bin/room
+sudo make install-systemd    # installs room.service, for a machine with systemd
+make STATIC=1                # a static PIE that you can copy into any image
+```
+
+Room only builds on Linux. `PREFIX` and `DESTDIR` change where `install` puts the files. After `install-systemd`, run `systemctl daemon-reload` and `systemctl enable --now room.service`. `make help` lists every target.
+
+On another system, use Docker. `make image` builds the release image as `room-release`. `make dist` builds the release files for linux/amd64 and linux/arm64 into `build/dist`.
 
 ## Quick start
 
@@ -396,7 +413,7 @@ A Dockerfile can copy a whole image into a directory. That gives one image with 
 
 ```dockerfile
 FROM debian:trixie-slim
-COPY --from=room-release /room /usr/local/bin/room
+COPY --from=ghcr.io/shaiq-dev/room:0.1.0 /room /usr/local/bin/room
 COPY --from=python:3.13-slim / /opt/roots/python
 ```
 

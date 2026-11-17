@@ -24,11 +24,14 @@ Outside `src/`:
 | `tests/t.c` | The helper the suite runs in the box, one subcommand per behaviour. |
 | `tests/seccomp_sim.c` | Includes `seccomp.c` and runs the filter through a small BPF interpreter against a table of expected results. |
 | `systemd/room.service` | The unit that gives room a delegated cgroup under systemd. |
-| `Dockerfile` | The stages `build` (static binary on Alpine), `release` (only `/room`), `tools` (format and lint tools), `test` (Debian, the default) and `systemd` (the test image booting systemd). |
+| `install.sh` | Installs the latest release on a machine: the binary, and `room.service` under systemd. |
+| `scripts/build-release.sh` | Builds the release files of one architecture with `fpm`: a tarball, a `.deb` and an `.rpm`. |
+| `packaging/linux/scripts/` | What the packages run after an install or an upgrade and before a removal. An upgrade must not stop `room.service`, because that kills every box. |
+| `Dockerfile` | The stages `build` (static binary on Alpine), `release` (only `/room`), `packages` and `dist` (the release files), `tools` (format and lint tools), `test` (Debian, the default) and `systemd` (the test image booting systemd). |
 | `Makefile` | Build, install, checks and the Docker targets. `make help` lists them. |
 | `.github/workflows/` | `ci.yml` runs the checks and the suite, `release.yml` publishes a tagged version. |
 
-Build output goes to `build/`, release binaries to `build/dist/`.
+Build output goes to `build/`, release files to `build/dist/`.
 
 ## The box on disk
 
