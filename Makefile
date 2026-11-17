@@ -134,7 +134,7 @@ check: format-check lint ## Format check, lint, -Werror builds with gcc and clan
 # For linux/amd64 and linux/arm64. scripts/build-release.sh lists the files.
 dist: ## Build the release tarballs, .deb and .rpm packages and SHA256SUMS into BUILD/dist
 	rm -rf $(BUILD)/dist
-	docker build --platform linux/amd64,linux/arm64 --target dist --output $(BUILD)/dist .
+	docker buildx build --platform linux/amd64,linux/arm64 --target dist --output $(BUILD)/dist .
 	mv $(BUILD)/dist/linux_amd64/* $(BUILD)/dist/linux_arm64/* $(BUILD)/dist/
 	rmdir $(BUILD)/dist/linux_amd64 $(BUILD)/dist/linux_arm64
 	cd $(BUILD)/dist && sha256sum room* > SHA256SUMS
