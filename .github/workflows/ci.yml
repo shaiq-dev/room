@@ -1,0 +1,61 @@
+# Format check, lint, builds and the test suite, also under systemd and
+# with sanitizers. Runs on every push to a branch and every pull request,
+# and release.yml calls it before it publishes anything, so the tests are
+# defined only here.
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  check:
+    name: Format, lint and build with gcc and clang
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: make docker-check
+
+  test:
+    name: Test on ${{ matrix.runner }}
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: make docker-test
+
+  systemd:
+    name: Test under systemd
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: make docker-test-systemd
+
+  sanitizers:
+    name: Test with ASan and UBSan
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: make docker-test-san
