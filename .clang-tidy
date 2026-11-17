@@ -1,0 +1,28 @@
+# Checks that find bugs, not style. Every check turned off has its reason:
+#   assignment-in-if-condition       if ((p = strchr(...))) is the idiom here, -Wparentheses guards it
+#   easily-swappable-parameters      a style opinion about function signatures
+#   multi-level-implicit-pointer-conversion  void * to char ** is plain C
+#   narrowing-conversions            same as -Wconversion, every narrowing is range checked or wanted
+#   suspicious-string-compare        !strcmp() is the idiom here
+#   switch-missing-default-case      the switches on plain ints cover a closed set of values
+#   cert-err33-c                     flags every unchecked snprintf and fprintf to stderr. The
+#                                    results that matter (meta file, cgroup writes) are checked
+#   cert-err34-c                     atoll() and sscanf() only read numbers the kernel wrote.
+#                                    User input goes through parse_num() and parse_time()
+#   DeprecatedOrUnsafeBufferHandling wants the C11 Annex K _s functions, which glibc and musl lack
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-assignment-in-if-condition,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-multi-level-implicit-pointer-conversion,
+  -bugprone-narrowing-conversions,
+  -bugprone-suspicious-string-compare,
+  -bugprone-switch-missing-default-case,
+  cert-*,
+  -cert-err33-c,
+  -cert-err34-c,
+  clang-analyzer-*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+WarningsAsErrors: "*"
+HeaderFilterRegex: "src/"
