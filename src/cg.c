@@ -169,7 +169,8 @@ static void remount_rw(void)
             flags |= keep[i].ms;
     if (mount(NULL, ROOM_CGROUP_FS, NULL, flags, NULL) < 0)
         die("%s is read-only and remounting it read-write failed: %m. "
-            "Start the container with --cap-add SYS_ADMIN",
+            "Start the container with --cap-add SYS_ADMIN, and on a host with AppArmor also "
+            "with --security-opt apparmor=unconfined",
             ROOM_CGROUP_FS);
 }
 

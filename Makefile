@@ -147,9 +147,13 @@ image: ## Build the release image room-release for this machine
 TOOLS_IMAGE = docker build -q --target tools -t room-tools .
 TOOLS = docker run --rm -w /usr/src/room
 
+# Docker's default AppArmor profile denies every mount, so on a host with
+# AppArmor SYS_ADMIN alone isn't enough. Docker ignores the option elsewhere.
+SYS_ADMIN = --cap-add SYS_ADMIN --security-opt apparmor=unconfined
+
 docker-test: ## Run the suite in Docker, with SYS_ADMIN and with --privileged
 	docker build -t room-test .
-	docker run --rm --cap-add SYS_ADMIN room-test
+	docker run --rm $(SYS_ADMIN) room-test
 	docker run --rm --privileged room-test
 
 # Systemd as PID 1 with room.service enabled, standing in for a machine
@@ -176,7 +180,7 @@ SAN_TEST = -v "$(CURDIR):/usr/src/room:ro" room-tools make test SAN=1 CC=clang-1
 
 docker-test-san: ## Like docker-test, against a build with ASan and UBSan
 	$(TOOLS_IMAGE)
-	$(TOOLS) --cap-add SYS_ADMIN $(SAN_TEST)
+	$(TOOLS) $(SYS_ADMIN) $(SAN_TEST)
 	$(TOOLS) --privileged $(SAN_TEST)
 
 docker-check: ## Run check in the tools image, on a read-only mount of the repository

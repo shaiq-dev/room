@@ -2,7 +2,7 @@
 
 Room runs an untrusted program in a box made from Linux namespaces, cgroup v2 and a seccomp filter. It limits the program's time, memory and processes, and it reports how the program ended. It's made for code judges.
 
-Room uses the command line and the meta file format of [isolate](https://github.com/ioi/isolate). It needs no daemon and no libraries. It arranges its own cgroups, so in Docker `--cap-add SYS_ADMIN` is enough.
+Room uses the command line and the meta file format of [isolate](https://github.com/ioi/isolate). It needs no daemon and no libraries. It arranges its own cgroups, so in Docker it needs `--cap-add SYS_ADMIN` and no systemd. A host with AppArmor needs one more flag, see [Requirements](#requirements).
 
 ## Requirements
 
@@ -11,6 +11,7 @@ Room uses the command line and the meta file format of [isolate](https://github.
 - Kernel 5.14 or later, going by the kernel's documentation. The `cg-mem` result needs 5.19. [docs/DESIGN.md](docs/DESIGN.md#platform-dependencies) lists the features.
 - Root. Room isn't setuid, so a caller that isn't root uses `sudo`.
 - In Docker: `--cap-add SYS_ADMIN` or `--privileged`. Add `--cap-add NET_ADMIN` if the box needs a loopback interface that is up.
+- On a Docker host with AppArmor, such as Ubuntu: `--security-opt apparmor=unconfined` next to `--cap-add SYS_ADMIN`. Docker's default AppArmor profile denies the mounts that room needs.
 - To build: a C compiler, `make` and the Linux kernel headers. Room links only against libc, glibc or musl.
 
 The test suite passes in Docker 29.9.3 on kernel 7.0.14 (linuxkit, aarch64), with `--cap-add SYS_ADMIN` and with `--privileged`. It also passes under systemd 257 in a privileged container. Without systemd, only the cgroup logic is tested, from the root cgroup of Docker's VM.
@@ -45,7 +46,7 @@ FROM python:3.13-slim
 COPY --from=room-release /room /usr/local/bin/room
 ```
 
-Start the container with `--cap-add SYS_ADMIN`. In Compose, that is `cap_add: [SYS_ADMIN]`.
+Start the container with `--cap-add SYS_ADMIN`. On a host with AppArmor, add `--security-opt apparmor=unconfined`. In Compose, those are `cap_add: [SYS_ADMIN]` and `security_opt: [apparmor=unconfined]`.
 
 ```console
 $ docker run --rm --cap-add SYS_ADMIN my-judge sh -c 'room --init && echo "print(6 * 7)" > /var/lib/room/0/box/main.py && room --run --cg-mem=262144 -t 2 -- /usr/local/bin/python3 main.py'
