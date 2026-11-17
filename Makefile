@@ -48,7 +48,6 @@ ALL_LDFLAGS = $(ROOM_LDFLAGS) $(LDFLAGS)
 SRCS = $(wildcard src/*.c)
 OBJS = $(SRCS:src/%.c=$(BUILD)/%.o)
 FORMAT_FILES = $(wildcard src/*.c src/*.h tests/*.c)
-VERSION = $(shell sed -n 's/.*define ROOM_VERSION "\(.*\)"/\1/p' src/room.h)
 
 all: $(BUILD)/room ## Build room into the build directory (the default)
 
@@ -132,14 +131,13 @@ check: format-check lint ## Format check, lint, -Werror builds with gcc and clan
 	$(MAKE) BUILD=$(BUILD)/clang CC=$(CLANG) CFLAGS="$(CFLAGS) -Werror" all
 	$(BUILD)/gcc/seccomp_sim
 
-# For linux/amd64 and linux/arm64, with docker.
-dist: ## Build the static release binaries and SHA256SUMS into BUILD/dist
+# For linux/amd64 and linux/arm64. scripts/build-release.sh lists the files.
+dist: ## Build the release tarballs, .deb and .rpm packages and SHA256SUMS into BUILD/dist
 	rm -rf $(BUILD)/dist
-	docker build --platform linux/amd64,linux/arm64 --target release --output $(BUILD)/dist .
-	mv $(BUILD)/dist/linux_amd64/room $(BUILD)/dist/room-$(VERSION)-linux-amd64
-	mv $(BUILD)/dist/linux_arm64/room $(BUILD)/dist/room-$(VERSION)-linux-arm64
+	docker build --platform linux/amd64,linux/arm64 --target dist --output $(BUILD)/dist .
+	mv $(BUILD)/dist/linux_amd64/* $(BUILD)/dist/linux_arm64/* $(BUILD)/dist/
 	rmdir $(BUILD)/dist/linux_amd64 $(BUILD)/dist/linux_arm64
-	cd $(BUILD)/dist && sha256sum room-* > SHA256SUMS
+	cd $(BUILD)/dist && sha256sum room* > SHA256SUMS
 
 image: ## Build the release image room-release for this machine
 	docker build --target release -t room-release .
@@ -156,8 +154,8 @@ docker-test: ## Run the suite in Docker, with SYS_ADMIN and with --privileged
 	docker run --rm $(SYS_ADMIN) room-test
 	docker run --rm --privileged room-test
 
-# Systemd as PID 1 with room.service enabled, standing in for a machine
-# without Docker. The container goes away however the suite ends.
+# Systemd as PID 1 with room installed from its Debian package. The
+# container goes away however the suite ends.
 docker-test-systemd: ## Run the suite in Docker under systemd, with room.service
 	docker build --target systemd -t room-test-systemd .
 	c=$$(docker run -d --privileged --cgroupns=private --tmpfs /run --tmpfs /run/lock \
@@ -174,7 +172,7 @@ docker-test-systemd: ## Run the suite in Docker under systemd, with room.service
 	    fi; \
 	    sleep 0.5; \
 	done; \
-	docker exec "$$c" sh tests/run.sh /usr/local/bin/room
+	docker exec "$$c" sh tests/run.sh /usr/bin/room
 
 SAN_TEST = -v "$(CURDIR):/usr/src/room:ro" room-tools make test SAN=1 CC=clang-19 BUILD=/tmp/san
 
